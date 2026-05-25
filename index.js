@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 
 const config = {
     token: process.env.TOKEN || require('./config.json').token,
@@ -104,10 +104,7 @@ client.once('ready', async () => {
             .setDescription('Turn the auth system on/off (admin only)'),
         new SlashCommandBuilder()
             .setName('generate')
-            .setDescription('Generate a new license key')
-            .addStringOption(opt => opt.setName('hwid').setDescription('HWID to bind (leave empty for first-activation)').setRequired(false))
-            .addStringOption(opt => opt.setName('plan').setDescription('Plan name (default: lifetime)').setRequired(false))
-            .addIntegerOption(opt => opt.setName('days').setDescription('Days until expiry (0 = never)').setRequired(false)),
+            .setDescription('Generate a new license key (opens a form)'),
         new SlashCommandBuilder()
             .setName('deactivate')
             .setDescription('Deactivate a license key (admin only)')
@@ -134,6 +131,32 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
+    if (interaction.isModalSubmit() && interaction.customId === 'generateModal') {
+        const hwid = interaction.fields.getTextInputValue('hwid') || '';
+        const days = parseInt(interaction.fields.getTextInputValue('days')) || 0;
+        const plan = interaction.fields.getTextInputValue('plan') || 'lifetime';
+
+        const key = generateKey();
+        const expiresAt = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null;
+
+        licenses[key] = {
+            hwid,
+            plan,
+            issuedAt: new Date().toISOString(),
+            expiresAt,
+            active: true,
+            lastIP: '',
+            lastSeen: null,
+        };
+        saveData();
+
+        let msg = `✅ **Key generated**\n\`${key}\`\nPlan: ${plan}\n`;
+        msg += hwid ? `HWID: \`${hwid}\`` : 'HWID: (first activation)';
+        if (expiresAt) msg += `\nExpires: ${expiresAt}`;
+        if (days > 0) msg += `\nDays: ${days}`;
+        return interaction.reply({ content: msg, ephemeral: true });
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const isAdmin = interaction.user.id === config.adminId;
@@ -149,28 +172,37 @@ client.on('interactionCreate', async interaction => {
 
         case 'generate': {
             if (!isAdmin) return interaction.reply({ content: '❌ Admin only.', ephemeral: true });
-            const hwid = interaction.options.getString('hwid') || '';
-            const plan = interaction.options.getString('plan') || 'lifetime';
-            const days = interaction.options.getInteger('days') || 0;
 
-            const key = generateKey();
-            const expiresAt = days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null;
+            const modal = new ModalBuilder()
+                .setCustomId('generateModal')
+                .setTitle('Generate License Key');
 
-            licenses[key] = {
-                hwid,
-                plan,
-                issuedAt: new Date().toISOString(),
-                expiresAt,
-                active: true,
-                lastIP: '',
-                lastSeen: null,
-            };
-            saveData();
+            const hwidInput = new TextInputBuilder()
+                .setCustomId('hwid')
+                .setLabel('HWID (leave empty for first-activation)')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(false);
 
-            let msg = `✅ **Key generated**\n\`${key}\`\nPlan: ${plan}\n`;
-            msg += hwid ? `HWID: \`${hwid}\`` : 'HWID: (first activation)';
-            if (expiresAt) msg += `\nExpires: ${expiresAt}`;
-            return interaction.reply({ content: msg, ephemeral: true });
+            const daysInput = new TextInputBuilder()
+                .setCustomId('days')
+                .setLabel('Days (0 = never expires)')
+                .setStyle(TextInputStyle.Short)
+                .setValue('0')
+                .setRequired(true);
+
+            const planInput = new TextInputBuilder()
+                .setCustomId('plan')
+                .setLabel('Plan name')
+                .setStyle(TextInputStyle.Short)
+                .setValue('lifetime')
+                .setRequired(true);
+
+            const row1 = new ActionRowBuilder().addComponents(hwidInput);
+            const row2 = new ActionRowBuilder().addComponents(daysInput);
+            const row3 = new ActionRowBuilder().addComponents(planInput);
+            modal.addComponents(row1, row2, row3);
+
+            return interaction.showModal(modal);
         }
 
         case 'deactivate': {
