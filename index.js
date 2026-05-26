@@ -70,7 +70,7 @@ app.post('/verify', (req, res) => {
         lic.lastSeen = new Date().toISOString();
         lic.lastIP = req.ip;
         saveData();
-        return res.json({ status: 'valid', plan: lic.plan, hwid: hwid });
+        return res.json({ status: 'valid', plan: lic.plan, hwid: hwid, expiresAt: lic.expiresAt || null });
     }
 
     if (lic.hwid !== hwid) {
@@ -81,7 +81,7 @@ app.post('/verify', (req, res) => {
     lic.lastIP = req.ip;
     saveData();
 
-    res.json({ status: 'valid', plan: lic.plan, hwid: lic.hwid });
+    res.json({ status: 'valid', plan: lic.plan, hwid: lic.hwid, expiresAt: lic.expiresAt || null });
 });
 
 app.get('/', (req, res) => {
