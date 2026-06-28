@@ -13,6 +13,7 @@ const DATA_FILE = path.join(__dirname, 'licenses.json');
 // === Data layer ===
 let licenses = {};
 let systemEnabled = true;
+let allowedSerials = ['ABS-001'];
 
 function loadData() {
     try {
@@ -21,13 +22,14 @@ function loadData() {
             const data = JSON.parse(raw);
             licenses = data.licenses || {};
             systemEnabled = data.systemEnabled !== undefined ? data.systemEnabled : true;
+            allowedSerials = data.allowedSerials || ['ABS-001'];
         }
     } catch (e) { console.error('Load error:', e); }
 }
 
 function saveData() {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify({ licenses, systemEnabled }, null, 2));
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ licenses, systemEnabled, allowedSerials }, null, 2));
     } catch (e) { console.error('Save error:', e); }
 }
 
@@ -46,12 +48,17 @@ app.use(express.json());
 app.post('/verify', (req, res) => {
     const key = (req.body.key || '').trim();
     const hwid = (req.body.hwid || '').trim();
+    const serial = (req.body.serial || '').trim();
 
     if (!systemEnabled) {
         return res.json({ status: 'invalid', message: 'Auth system is currently disabled' });
     }
     if (!key) return res.json({ status: 'invalid', message: 'No key provided' });
     if (!hwid) return res.json({ status: 'invalid', message: 'No HWID provided' });
+
+    if (serial && !allowedSerials.includes(serial)) {
+        return res.json({ status: 'invalid', message: 'This version is no longer supported - update required' });
+    }
 
     const lic = licenses[key];
     if (!lic) return res.json({ status: 'invalid', message: 'License key not found' });
@@ -119,6 +126,17 @@ client.once('ready', async () => {
         new SlashCommandBuilder()
             .setName('status')
             .setDescription('Show current system status'),
+        new SlashCommandBuilder()
+            .setName('addserial')
+            .setDescription('Allow a new app serial (admin only)')
+            .addStringOption(opt => opt.setName('serial').setDescription('The serial to allow').setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('removeserial')
+            .setDescription('Remove an allowed app serial (admin only)')
+            .addStringOption(opt => opt.setName('serial').setDescription('The serial to remove').setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('listserials')
+            .setDescription('List all allowed app serials (admin only)'),
     ];
 
     const rest = new REST({ version: '10' }).setToken(config.token);
@@ -248,9 +266,32 @@ client.on('interactionCreate', async interaction => {
             const active = Object.values(licenses).filter(l => l.active).length;
             const sysStatus = systemEnabled ? '🟢 Enabled' : '🔴 Disabled';
             return interaction.reply({
-                content: `**System:** ${sysStatus}\n**Licenses:** ${count} total, ${active} active`,
+                content: `**System:** ${sysStatus}\n**Licenses:** ${count} total, ${active} active\n**Allowed Serials:** ${allowedSerials.join(', ') || 'none'}`,
                 ephemeral: true,
             });
+        }
+
+        case 'addserial': {
+            if (!isAdmin) return interaction.reply({ content: '❌ Admin only.', ephemeral: true });
+            const serial = interaction.options.getString('serial').toUpperCase();
+            if (allowedSerials.includes(serial)) return interaction.reply({ content: `⚠️ Serial \`${serial}\` already allowed.`, ephemeral: true });
+            allowedSerials.push(serial);
+            saveData();
+            return interaction.reply({ content: `✅ Serial \`${serial}\` added. Allowed: ${allowedSerials.join(', ')}`, ephemeral: true });
+        }
+
+        case 'removeserial': {
+            if (!isAdmin) return interaction.reply({ content: '❌ Admin only.', ephemeral: true });
+            const serial = interaction.options.getString('serial').toUpperCase();
+            if (!allowedSerials.includes(serial)) return interaction.reply({ content: `⚠️ Serial \`${serial}\` not found.`, ephemeral: true });
+            allowedSerials = allowedSerials.filter(s => s !== serial);
+            saveData();
+            return interaction.reply({ content: `✅ Serial \`${serial}\` removed. Allowed: ${allowedSerials.join(', ') || 'none'}`, ephemeral: true });
+        }
+
+        case 'listserials': {
+            if (!isAdmin) return interaction.reply({ content: '❌ Admin only.', ephemeral: true });
+            return interaction.reply({ content: `**Allowed Serials:** ${allowedSerials.join(', ') || 'none'}`, ephemeral: true });
         }
     }
 });
