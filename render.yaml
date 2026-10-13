@@ -1,0 +1,38 @@
+# ShadeFN auth-server on Render — Blueprint.
+# Steps: push this folder to GitHub -> Render Dashboard -> New -> Blueprint ->
+# select the repo. Then fill the empty env vars below in the dashboard.
+services:
+  - type: web
+    name: shade-auth
+    runtime: go
+    buildCommand: go build -o auth-server .
+    startCommand: ./auth-server
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shade-db
+          property: connectionString
+      - key: TRUST_PROXY
+        value: "true" # Render terminates TLS at its proxy; required for real client IPs
+      - key: DISCORD_BOT_TOKEN
+        sync: false # paste bot token in dashboard
+      - key: DISCORD_ADMIN_ID
+        value: "935197258314580059"
+      - key: DISCORD_GUILD_ID
+        value: "1479509415752237211"
+      - key: AUTH_SIGNING_PRIVKEY_B64
+        sync: false # paste - generated once, keep secret, never rotate lightly
+      - key: AUTH_SIGNING_PUBKEY_B64
+        value: "85+rjZmLcAstG1e2wuHbStz+2aAzTt5jdsyAygYWvSA="
+      - key: EPIC_SSO_BASIC
+        sync: false # optional override; defaults baked in otherwise
+      - key: EPIC_SWITCH_BASIC
+        sync: false
+      - key: EPIC_PC_BASIC
+        sync: false
+
+databases:
+  - name: shade-db
+    databaseName: shade
+    user: shade

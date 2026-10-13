@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShadeFN</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#0f1320 0%,#07080c 55%,#050609 100%);
+    color:#e0e0e0;
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;
+  }
+  .card{
+    text-align:center;
+    padding:48px 56px;
+    background:linear-gradient(135deg,#131722 0%,#0b0d12 100%);
+    border:1px solid rgba(102,126,234,.25);
+    border-radius:18px;
+    box-shadow:0 20px 60px rgba(0,0,0,.6);
+  }
+  .logo{
+    font-size:64px;font-weight:800;letter-spacing:-2px;
+    background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+    margin-bottom:10px;line-height:1;
+  }
+  .status{
+    display:inline-block;
+    font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;
+    color:#2ed573;
+    padding:6px 14px;border-radius:20px;
+    background:rgba(46,213,115,.12);
+    border:1px solid rgba(46,213,115,.3);
+    margin-top:14px;
+  }
+  .subtitle{color:#6b7793;font-size:14px;margin-top:16px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">ShadeFN</div>
+    <div class="status">● Online</div>
+    <div class="subtitle">License server is running</div>
+  </div>
+</body>
+</html>
